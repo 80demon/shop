@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop 
+		http://www.springframework.org/schema/aop/spring-aop-3.2.xsd
+		http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context 
+		http://www.springframework.org/schema/context/spring-context-3.2.xsd
+		http://www.springframework.org/schema/tx 
+		http://www.springframework.org/schema/tx/spring-tx-3.2.xsd">
+	<!-- <bean id="date" class="java.util.Date" /> -->
+	<context:property-placeholder location="classpath:jdbc.properties" />
+	<!-- 数据源配置 -->
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+		<!-- 用户名root -->
+		<property name="user" value="${jdbc.Username}" />
+		<!-- 密码root -->
+		<property name="password" value="${jdbc.Password}" />
+		<property name="driverClass" value="${jdbc.driverClass}" />
+		<property name="jdbcUrl" value="${jdbc.jdbcUrl}" />
+		<!-- 初始化连接池中的连接数，取值应在minPoolSize与maxPoolSize之间，默认为3 -->
+		<property name="initialPoolSize" value="${jdbc.InitialSize}" />
+		<!-- 连接池中保留的最小连接数，默认为：3 -->
+		<property name="minPoolSize" value="${jdbc.minPoolSize}" />
+		<!--连接池中保留的最大连接数。默认值: 15 -->
+		<property name="maxPoolSize" value="${jdbc.MaxActive}" />
+		<property name="acquireIncrement" value="5" />
+		<!--最大空闲时间，60秒内未使用则连接被丢弃。若为0则永不丢弃。默认值: 0 -->
+		<property name="maxIdleTime" value="3600" />
+		<!--c3p0全局的PreparedStatements缓存的大小。如果maxStatements与maxStatementsPerConnection均为0，则缓存不生效，只要有一个不为0，则语句的缓存就能生效。如果默认值: 
+			0 -->
+		<property name="maxStatements" value="100" />
+	</bean>
+	<!-- 添加sessionFactory bane ，注意，该类是Spring提供的 -->
+	<bean id="sessionFactory"
+		class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+		<!-- 注入数据源到sesssionFactory -->
+		<property name="dataSource" ref="dataSource" />
+		<!-- 注入Hibernate 配置文件路径,前面要加上 classpath: -->
+		<!--version1 <property name="configLocation" value="classpath:hibernate.cfg.xml"></property> -->
+		<!--version2 hibernate的基本配置，如:方言，是否显示sql等 -->
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.show_sql">true</prop>
+				<!-- 坑啊。写成heibernate4报错 -->
+				<prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate3.SpringSessionContext
+				</prop>
+				<prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+			</props>
+		</property>
+		<!-- 引入映射文件，如果有多个可以继续添加 <value> -->
+		<property name="mappingLocations" value="classpath*:com/panjoy/**/*.hbm.xml">
+		<!-- 不知道为什么，这种配置找不到xml文件 -->
+			<!-- <list>
+				<value>com/panjoy/entity/Category.hbm.xml</value>
+			</list> -->
+		</property>
+
+	</bean>
+	<!-- 声明式事务管理 -->
+	<bean id="transactionManager"
+		class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+		<property name="sessionFactory" ref="sessionFactory" />
+	</bean>
+	<!-- 配置事物通知 -->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="save*" propagation="REQUIRED" />
+			<tx:method name="update*" propagation="REQUIRED" />
+			<tx:method name="delete*" propagation="REQUIRED" />
+			<tx:method name="query*" propagation="SUPPORTS" />
+		</tx:attributes>
+	</tx:advice>
+	<!-- 配置AOP切面 -->
+	<aop:config>
+		<aop:pointcut expression="execution(* com.panjoy.shop.service.impl.*.*(..))"
+			id="pointcut" />
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="pointcut" />
+	</aop:config>
+</beans>
